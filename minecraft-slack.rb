@@ -10,55 +10,7 @@ class MinecraftSlack
   def initialize(config)
     @config = config
     load_users
-  end
-
-  private
-
-  def save
-    File.write(File.join(minecraft_path, "minecraft-slack.yml"), YAML.dump(config))
-  end
-
-  def minecraft_path
-    config.fetch("minecraft_path")
-  end
-
-  def uri
-    URI.parse(config.fetch("slack_api"))
-  end
-
-  def load_whitelist
-    file = File.join(minecraft_path, "whitelist.json")
-    unless File.exist?(file)
-      File.write(file, [].to_json)
-    end
-
-    JSON.load(file).map {|u| u["name"]}
-  end
-
-  def load_users
-    whitelist = load_whitelist || []
-    user_data = config.reject do |k,v|
-      ["minecraft_path", "slack_api"].include?(k)
-    end
-
-    @users = whitelist.map do |username|
-      data = user_data.fetch(username, {
-        "username" => username,
-        "icon" => ":steve:"
-      })
-
-      {username => data}
-    end.reduce(:merge)
-  end
-
-  def payload(username, icon, text)
-    {
-      "payload" => {
-        "username" => username,
-        "icon_emoji" => icon,
-        "text" => text
-      }.to_json
-    }
+    save
   end
 
   def user_regex
@@ -88,12 +40,62 @@ class MinecraftSlack
   def post_message(chat_line)
     info = users[chat_line.user]
     puts "Posting to slack: <#{chat_line.user}> #{chat_line.line}"
-    Net::HTTP.post_form(uri, payload(info["username"], info["icon"], text))
+    Net::HTTP.post_form(uri, payload(info["username"], info["icon"], chat_line.line))
+  end
+
+  private
+
+  def save
+    File.write(File.join(minecraft_path, "minecraft-slack.yml"), YAML.dump(config))
+  end
+
+  def minecraft_path
+    config.fetch("minecraft_path")
+  end
+
+  def uri
+    URI.parse(config.fetch("slack_api"))
+  end
+
+  def load_whitelist
+    file = File.join(minecraft_path, "whitelist.json")
+    unless File.exist?(file)
+      File.write(file, [].to_json)
+    end
+
+    JSON.load(File.new(file)).map {|u| u["name"]}
+  end
+
+  def load_users
+    whitelist = load_whitelist || []
+    user_data = config.reject do |k,v|
+      ["minecraft_path", "slack_api"].include?(k)
+    end
+
+    @users = whitelist.map do |username|
+      data = user_data.fetch(username, {
+        "username" => username,
+        "icon" => ":steve:"
+      })
+
+      {username => data}
+    end.reduce(:merge)
+    config.merge!(users)
+  end
+
+  def payload(username, icon, text)
+    {
+      "payload" => {
+        "username" => username,
+        "icon_emoji" => icon,
+        "text" => text
+      }.to_json
+    }
   end
 end
 
 class ChatLine
-  attr_accessor :user
+  attr_reader :user, :line
 
   def initialize(line, user)
     @line = line.gsub(/.*#{user}/,'').strip
@@ -109,11 +111,11 @@ class ChatLine
   end
 
   def new_icon
-    text[20,99].strip
+    line[20,99].strip
   end
 
   def new_name
-    text[20,99].strip
+    line[20,99].strip
   end
 end
 
