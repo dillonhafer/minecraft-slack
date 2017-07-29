@@ -43,7 +43,19 @@ class MinecraftSlack
     Net::HTTP.post_form(uri, payload(info["username"], info["icon"], chat_line.line))
   end
 
+  def voodoo_chicken(chat_line)
+    if five_percent_chance
+      puts "Summoning Ultra Mega Chicken"
+      `c="screen -p 0 -S minecraft_server -X eval 'stuff \\"say #{chat_line.user} has summonded Ultra Mega Chicken!\\"\\015'"; su minecraft -c "$c"`
+      `c="screen -p 0 -S minecraft_server -X eval 'stuff \\"execute #{chat_line.user} ~ ~ ~ summon Chicken\\"\\015'"; su minecraft -c "$c"`
+    end
+  end
+
   private
+
+  def five_percent_chance
+    (1..20).to_a.sample == 7
+  end
 
   def save
     File.write(File.join(minecraft_path, "minecraft-slack.yml"), YAML.dump(config))
@@ -110,6 +122,11 @@ class ChatLine
     line.downcase[0,20] == "change slack name to"
   end
 
+  def voodoo_chicken?
+    line.downcase[0,13] == "chicken arise" ||
+    line.downcase[0,13] == "arise chicken"
+  end
+
   def new_icon
     line[20,99].strip
   end
@@ -131,6 +148,8 @@ if match = mc_slack.user_regex.match(line)
     mc_slack.change_icon(chat_line)
   when chat_line.change_name?
     mc_slack.change_name(chat_line)
+  when chat_line.voodoo_chicken?
+    mc_slack.voodoo_chicken(chat_line)
   else
     mc_slack.post_message(chat_line)
   end
