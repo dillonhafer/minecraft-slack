@@ -1,0 +1,3 @@
+---
+minecraft_path: "/home/dev/minecraft"
+slack_api:      https://hooks.slack.com/services/SOME/TOKEN
